@@ -1,0 +1,10 @@
+# Ignora archivos binarios y de objetos
+[Bb]in/
+[Oo]bj/
+
+# Ignora archivos temporales y generados por Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+*.log
