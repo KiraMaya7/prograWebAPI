@@ -20,14 +20,13 @@ namespace API_LabProgra.Servicios
             return await _dbSet.ToListAsync();
         }
 
-
         public async Task<int> AddUser(Cuentum modelo)
         {
             try
             {
                 _dbSet.Add(modelo);
                 await _context.SaveChangesAsync();
-                return modelo.IdUsuario;
+                return modelo.IdUsuario; 
             }
             catch (Exception)
             {
@@ -91,10 +90,27 @@ namespace API_LabProgra.Servicios
 
         public async Task<Cuentum> ValidateUser(string username, string password)
         {
-            return await _dbSet.FirstOrDefaultAsync(u =>
-                u.Usuario == username &&
-                u.Contraseña == password
+            var usuario = await _dbSet.FirstOrDefaultAsync(u => u.Usuario == username);
+
+            if (usuario == null)
+                return null;
+            bool passwordIsValid = VerifyPassword(password, usuario.Contraseña);
+
+            if (!passwordIsValid)
+                return null;
+
+            return usuario;
+        }
+
+        private bool VerifyPassword(string inputPassword, string storedPassword)
+        {
+            string hashedInput = Convert.ToBase64String(
+                System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(inputPassword)
+                )
             );
+
+            return hashedInput == storedPassword;
         }
 
         public async Task<List<Cuentum>> GetUsersByRole(int rolId)
