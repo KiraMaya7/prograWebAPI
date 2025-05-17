@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.MaxDepth = 0;
     });
+
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>
@@ -54,6 +56,7 @@ builder.Services.AddDbContext<SistemaMedicoContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SistemaMedicoConnection")));
 
 builder.Services.AddScoped<ICuentaService, CuentaService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 
 builder.Services.AddCors(options =>
 {
@@ -76,29 +79,43 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.Zero 
+            NameClaimType = ClaimTypes.Name,
+            RoleClaimType = ClaimTypes.Role
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context => {
+                var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+                {
+                    context.Token = authHeader.Substring("Bearer ".Length).Trim();
+                }
+                return Task.CompletedTask;
+            }
+        };
+        options.SaveToken = true;
+
     });
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy =>
-        policy.RequireClaim(System.Security.Claims.ClaimTypes.Role, "1"));
+        policy.RequireClaim(ClaimTypes.Role, "1"));
 
     options.AddPolicy("DoctorOnly", policy =>
-        policy.RequireClaim(System.Security.Claims.ClaimTypes.Role, "2"));
+        policy.RequireClaim(ClaimTypes.Role, "2"));
 
     options.AddPolicy("PatientOnly", policy =>
-        policy.RequireClaim(System.Security.Claims.ClaimTypes.Role, "3"));
+        policy.RequireClaim(ClaimTypes.Role, "3"));
 
     options.AddPolicy("AdminAndDoctor", policy =>
-        policy.RequireClaim(System.Security.Claims.ClaimTypes.Role, "1", "2"));
+        policy.RequireClaim(ClaimTypes.Role, "1", "2"));
 });
 
 var app = builder.Build();
@@ -110,9 +127,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseCors("AllowAll");
-
 app.UseAuthentication();
 app.UseAuthorization();
 

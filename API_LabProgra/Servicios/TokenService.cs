@@ -6,7 +6,7 @@ using System.Text;
 
 namespace API_LabProgra.Servicios
 {
-    public class TokenService
+    public class TokenService : ITokenService
     {
         private readonly IConfiguration _configuration;
 
@@ -17,7 +17,11 @@ namespace API_LabProgra.Servicios
 
         public string GenerateToken(Cuentum user)
         {
-            var jwtKey = _configuration["Jwt:Key"] ?? "clave_temporal_desarrollo_";
+            var jwtKey = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                throw new InvalidOperationException("La clave JWT no está configurada correctamente");
+            }
             var jwtIssuer = _configuration["Jwt:Issuer"] ?? "SistemaMedicoAPI";
             var jwtAudience = _configuration["Jwt:Audience"] ?? "SistemaMedicoClientes";
 
@@ -31,8 +35,8 @@ namespace API_LabProgra.Servicios
 
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.IdUsuario.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Correo),
+                new Claim(ClaimTypes.NameIdentifier, user.IdUsuario.ToString()),
+                new Claim(ClaimTypes.Email, user.Correo),
                 new Claim("username", user.Usuario),
                 new Claim(ClaimTypes.Name, $"{user.Nombre} {user.Apellidos}"),
                 new Claim(ClaimTypes.Role, user.Rol.ToString()),
@@ -45,7 +49,7 @@ namespace API_LabProgra.Servicios
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(tokenDurationMinutes),
                 signingCredentials: credentials
-            );
+                );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
