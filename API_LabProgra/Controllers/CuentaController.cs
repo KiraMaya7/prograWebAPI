@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API_LabProgra.Controllers
 {
@@ -29,8 +30,9 @@ namespace API_LabProgra.Controllers
             _logger = logger;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<DTOCuenta>>> GetCuentas()
+            [HttpGet]
+            [Authorize(Policy = "AdminOnly")] 
+            public async Task<ActionResult<IEnumerable<DTOCuenta>>> GetCuentas()
         {
             try
             {
@@ -46,6 +48,7 @@ namespace API_LabProgra.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize] 
         public async Task<ActionResult<DTOCuenta>> GetCuenta(int id)
         {
             try
@@ -56,8 +59,16 @@ namespace API_LabProgra.Controllers
                 {
                     return NotFound($"Usuario con ID {id} no encontrado");
                 }
+                var userId = int.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? "0");
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "0";
+
+                if (userId != id && userRole != "1") 
+                {
+                    return Forbid();
+                }
 
                 return Ok(DTOCuenta.FromEntity(cuenta));
+
             }
             catch (Exception ex)
             {
@@ -104,6 +115,7 @@ namespace API_LabProgra.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult<DTOCuenta>> CreateCuenta(CreateDTOCuenta DTOCuenta)
         {
             try
