@@ -45,6 +45,22 @@ namespace API_LabProgra.Controllers
             }
         }
 
+        [HttpGet("Usuario/{idUsuario}")]
+        public async Task<ActionResult<DoctorDTO>> GetDoctorByUsuario(int idUsuario)
+        {
+            var doctor = await _context.Doctores
+                .Include(d => d.IdAreaNavigation)
+                .Include(d => d.IdUsuarioNavigation)
+                .FirstOrDefaultAsync(d => d.IdUsuario == idUsuario);
+
+            if (doctor == null)
+            {
+                return NotFound($"No se encontró doctor para el usuario con ID {idUsuario}");
+            }
+
+            return DoctorDTO.FromEntity(doctor);
+        }
+
         [HttpGet("{id}")]
         [Authorize] // Cualquier usuario autenticado puede ver un doctor
         public async Task<ActionResult<DoctorDTO>> GetDoctor(int id)
@@ -136,6 +152,7 @@ namespace API_LabProgra.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+        
 
         [HttpGet("{id}")] //ID del Doctor no de usuario
         public async Task<ActionResult<DoctorDetalleDTO>> GetDoctorDetalle(int id)
